@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Samantha - AI Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #07090f;
+    font-family: 'Outfit', sans-serif;
+    color: #e2e8f0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .bg-glow {
+    position: fixed; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(ellipse 70% 50% at 50% 0%, rgba(56,189,248,0.06) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 40% at 20% 100%, rgba(167,139,250,0.05) 0%, transparent 70%);
+  }
+
+  .name-tag {
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: #38bdf8;
+    margin-bottom: 4px;
+    opacity: 0.8;
+  }
+
+  h1 {
+    font-size: 26px;
+    font-weight: 600;
+    color: #f1f5f9;
+    margin-bottom: 4px;
+  }
+
+  .subtitle {
+    font-size: 12px;
+    color: #475569;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  /* ── Avatar circle ── */
+  .avatar-wrap {
+    position: relative;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-bottom: 22px;
+    box-shadow: 0 0 0 3px rgba(56,189,248,0.2), 0 0 40px rgba(56,189,248,0.08);
+    transition: box-shadow 0.4s;
+    background: #0d1626;
+  }
+
+  .avatar-wrap.listening {
+    box-shadow: 0 0 0 4px rgba(34,197,94,0.7), 0 0 55px rgba(34,197,94,0.25);
+  }
+  .avatar-wrap.speaking {
+    animation: speakGlow 0.9s ease-in-out infinite alternate;
+  }
+  .avatar-wrap.thinking {
+    box-shadow: 0 0 0 4px rgba(167,139,250,0.6), 0 0 50px rgba(167,139,250,0.2);
+  }
+
+  @keyframes speakGlow {
+    from { box-shadow: 0 0 0 3px rgba(56,189,248,0.5), 0 0 40px rgba(56,189,248,0.2); }
+    to   { box-shadow: 0 0 0 7px rgba(56,189,248,1.0), 0 0 80px rgba(56,189,248,0.45); }
+  }
+
+  #womanVideo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+  }
+
+  /* Dark vignette bottom */
+  .avatar-wrap::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 60px;
+    background: linear-gradient(transparent, rgba(7,9,15,0.5));
+    pointer-events: none;
+  }
+
+  /* Status */
+  .status-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 8px;
+  }
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #334155;
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .dot.listening { background: #22c55e; box-shadow: 0 0 8px #22c55e99; animation: dp 1s infinite; }
+  .dot.speaking  { background: #38bdf8; box-shadow: 0 0 8px rgba(56,189,248,0.9); animation: dp 0.5s infinite; }
+  .dot.thinking  { background: #a78bfa; box-shadow: 0 0 8px rgba(167,139,250,0.8); animation: dp 0.7s infinite; }
+  @keyframes dp { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+  #statusLabel {
+    font-size: 12px; color: #64748b;
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+
+  .bubble {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 8px 18px;
+    font-size: 13px; color: #94a3b8;
+    max-width: 320px; text-align: center;
+    min-height: 36px; line-height: 1.5;
+    margin-bottom: 10px; font-style: italic;
+    transition: opacity 0.3s;
+  }
+  .bubble:empty { opacity: 0; }
+
+  .reply-bubble {
+    background: rgba(56,189,248,0.06);
+    border: 1px solid rgba(56,189,248,0.15);
+    border-radius: 12px;
+    padding: 8px 18px;
+    font-size: 13px; color: #bae6fd;
+    max-width: 320px; text-align: center;
+    line-height: 1.5; margin-bottom: 10px;
+    display: none;
+  }
+  .reply-bubble.visible { display: block; }
+
+  .err {
+    display: none;
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 10px;
+    padding: 7px 14px;
+    font-size: 11px; color: #fca5a5;
+    max-width: 320px; text-align: center;
+    margin-bottom: 10px; word-break: break-word;
+  }
+  .err.on { display: block; }
+
+  .waveform {
+    display: flex; align-items: center; gap: 3px;
+    height: 22px; margin-bottom: 20px;
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .waveform.on { opacity: 1; }
+  .bar { width: 3px; border-radius: 2px; background: #38bdf8; height: 3px; }
+  .waveform.speaking .bar { animation: wv 0.55s ease-in-out infinite alternate; }
+  .waveform.listening .bar { animation: wv 1.1s ease-in-out infinite alternate; background: #22c55e; }
+  .waveform.thinking  .bar { animation: wv 0.8s ease-in-out infinite alternate; background: #a78bfa; }
+  @keyframes wv { 0%{height:3px} 100%{height:18px} }
+  .bar:nth-child(1){animation-delay:0s}   .bar:nth-child(2){animation-delay:.07s}
+  .bar:nth-child(3){animation-delay:.14s} .bar:nth-child(4){animation-delay:.21s}
+  .bar:nth-child(5){animation-delay:.28s} .bar:nth-child(6){animation-delay:.35s}
+  .bar:nth-child(7){animation-delay:.28s} .bar:nth-child(8){animation-delay:.21s}
+  .bar:nth-child(9){animation-delay:.14s} .bar:nth-child(10){animation-delay:.07s}
+
+  .btns { display: flex; gap: 12px; }
+  .btn {
+    padding: 11px 26px; border-radius: 50px;
+    border: 1.5px solid; font-family: 'Outfit', sans-serif;
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    letter-spacing: 0.06em;
+    transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+  }
+  .btn:active { transform: scale(0.95); }
+  .btn-start { background: rgba(56,189,248,0.08); border-color: #38bdf8; color: #38bdf8; }
+  .btn-start:hover { background: rgba(56,189,248,0.18); box-shadow: 0 0 18px rgba(56,189,248,0.2); }
+  .btn-stop  { background: rgba(239,68,68,0.07); border-color: #ef4444; color: #ef4444; }
+  .btn-stop:hover { background: rgba(239,68,68,0.16); }
+</style>
+</head>
+<body>
+<div class="bg-glow"></div>
+
+<p class="name-tag">AI Assistant</p>
+<h1>Samantha</h1>
+<p class="subtitle">Professional Virtual Assistant</p>
+
+<div class="avatar-wrap" id="avatarWrap">
+  <!-- NOT autoplay, NOT loop — controlled fully by JS -->
+  <video
+    id="womanVideo"
+    src="/static/woman.mp4"
+    muted
+    playsinline
+    preload="auto">
+  </video>
+</div>
+
+<div class="status-row">
+  <div class="dot" id="dot"></div>
+  <span id="statusLabel">Ready — Click Start</span>
+</div>
+
+<div class="bubble"       id="bubble"></div>
+<div class="reply-bubble" id="replyBubble"></div>
+<div class="err"          id="err"></div>
+
+<div class="waveform" id="waveform">
+  <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+  <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+  <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+  <div class="bar"></div>
+</div>
+
+<div class="btns">
+  <button class="btn btn-start" onclick="startConversation()">▶ Start</button>
+  <button class="btn btn-stop"  onclick="endConversation()">■ Stop</button>
+</div>
+
+<script>
+const avatarWrap  = document.getElementById('avatarWrap');
+const womanVideo  = document.getElementById('womanVideo');
+const dot         = document.getElementById('dot');
+const statusLbl   = document.getElementById('statusLabel');
+const bubbleEl    = document.getElementById('bubble');
+const replyBubble = document.getElementById('replyBubble');
+const errEl       = document.getElementById('err');
+const waveEl      = document.getElementById('waveform');
+
+let recognition, isListening = false, isSpeaking = false;
+
+// ── UI helpers ────────────────────────────────────────────
+function setStatus(mode, label) {
+  dot.className         = 'dot ' + (mode || '');
+  statusLbl.textContent = label;
+  waveEl.className      = 'waveform' + (mode ? ' on ' + mode : '');
+  avatarWrap.className  = 'avatar-wrap ' + (mode || '');
+}
+function showErr(m) { errEl.textContent = '⚠ ' + m; errEl.classList.add('on'); }
+function hideErr()  { errEl.classList.remove('on'); }
+function showReply(t) { replyBubble.textContent = '💬 ' + t; replyBubble.classList.add('visible'); }
+function hideReply()  { replyBubble.classList.remove('visible'); }
+
+// ── Video control ─────────────────────────────────────────
+// Seek to frame 0 so a still frame shows when idle
+function pauseVideoAtStart() {
+  womanVideo.pause();
+  womanVideo.currentTime = 0;
+}
+
+function startVideo() {
+  womanVideo.loop = true;
+  womanVideo.playbackRate = 1.2;
+  womanVideo.play().catch(e => console.warn('Video play error:', e));
+}
+
+function stopVideo() {
+  womanVideo.pause();
+  // Seek back to first frame so it shows a clean still
+  womanVideo.currentTime = 0;
+}
+
+// Load video and park on first frame on page load
+window.addEventListener('load', () => {
+  womanVideo.load();
+  womanVideo.addEventListener('loadeddata', () => {
+    womanVideo.currentTime = 0.01; // tiny seek shows first frame
+  });
+});
+
+// ── Speech Recognition ────────────────────────────────────
+function initSpeech() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert('Please use Google Chrome for speech recognition.'); return false; }
+
+  recognition = new SR();
+  recognition.continuous     = true;
+  recognition.interimResults = false;
+  recognition.lang           = 'en-US';
+
+  recognition.onresult = async (event) => {
+    if (isSpeaking) return;
+
+    const last = event.results.length - 1;
+    const text = event.results[last][0].transcript.trim();
+    if (!text) return;
+
+    bubbleEl.textContent = '🎤 ' + text;
+    hideErr();
+    hideReply();
+
+    try { recognition.stop(); } catch(e) {}
+    setStatus('thinking', 'Thinking…');
+
+    try {
+      const res = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text })
+      });
+
+      if (!res.ok) {
+        throw new Error('Server ' + res.status + ': ' + (await res.text()).slice(0, 120));
+      }
+
+      const data = await res.json();
+      if (!data.reply) throw new Error('No reply from server. Check app.py.');
+
+      speak(data.reply);
+
+    } catch(e) {
+      showErr(e.message);
+      if (isListening) {
+        try { recognition.start(); } catch(e2) {}
+        setStatus('listening', 'Listening…');
+      } else {
+        setStatus('', 'Ready');
+      }
+    }
+  };
+
+  recognition.onend = () => {
+    if (isListening && !isSpeaking)
+      setTimeout(() => { try { recognition.start(); } catch(e) {} }, 300);
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error === 'no-speech') return;
+    if (isListening && !isSpeaking)
+      setTimeout(() => { try { recognition.start(); } catch(e2) {} }, 1000);
+  };
+
+  return true;
+}
+
+// ── TTS + Video play together ─────────────────────────────
+function speak(text) {
+  if (!text) return;
+
+  isSpeaking = true;
+  setStatus('speaking', 'Speaking…');
+  showReply(text);
+
+  // ★ START video only now — when she speaks
+  startVideo();
+
+  const utt  = new SpeechSynthesisUtterance(text);
+  utt.lang   = 'en-US';
+  utt.rate   = 0.92;
+  utt.pitch  = 1.05;
+  utt.volume = 1;
+
+  // Pick best female voice
+  const voices   = speechSynthesis.getVoices();
+  const names    = ['Samantha','Karen','Victoria','Zira','Jenny','Susan','Fiona','Moira','Veena'];
+  let chosen     = null;
+  for (const n of names) {
+    chosen = voices.find(v => v.name.toLowerCase().includes(n.toLowerCase()));
+    if (chosen) break;
+  }
+  if (!chosen) chosen = voices.find(v => v.lang.startsWith('en') && /female/i.test(v.name));
+  if (chosen) utt.voice = chosen;
+
+  utt.onstart = () => { bubbleEl.textContent = ''; };
+
+  utt.onend = () => {
+    isSpeaking = false;
+
+    // ★ STOP video — back to still frame
+    stopVideo();
+    hideReply();
+
+    if (isListening) {
+      try { recognition.start(); } catch(e) {}
+      setStatus('listening', 'Listening…');
+    } else {
+      setStatus('', 'Ready');
+    }
+  };
+
+  utt.onerror = () => {
+    isSpeaking = false;
+    stopVideo();
+    if (isListening) {
+      try { recognition.start(); } catch(e) {}
+      setStatus('listening', 'Listening…');
+    } else {
+      setStatus('', 'Ready');
+    }
+  };
+
+  // Small delay so video visibly starts before voice
+  setTimeout(() => { speechSynthesis.speak(utt); }, 150);
+}
+
+// ── Controls ──────────────────────────────────────────────
+function startConversation() {
+  if (!recognition && !initSpeech()) return;
+  isListening = true;
+  try { recognition.start(); } catch(e) {}
+  setStatus('listening', 'Listening…');
+}
+
+function endConversation() {
+  isListening = false;
+  isSpeaking  = false;
+  if (recognition) { try { recognition.stop(); } catch(e) {} }
+  speechSynthesis.cancel();
+  stopVideo();
+  setStatus('', 'Ready');
+  bubbleEl.textContent = '';
+  hideReply();
+}
+
+speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+</script>
+</body>
+</html>

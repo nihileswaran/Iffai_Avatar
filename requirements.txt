@@ -1,1 +1,7 @@
-pip install flask openai python-dotenv faiss-cpu sentence-transformers numpy
+flask
+openai
+python-dotenv
+faiss-cpu
+sentence-transformers
+numpy
+gunicorn
